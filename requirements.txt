@@ -17,3 +17,6 @@ catboost
 lightgbm
 flaky
 tabulate
+pyDOE
+scikit-optimize
+emcee
