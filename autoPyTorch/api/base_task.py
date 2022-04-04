@@ -95,6 +95,256 @@ def _pipeline_predict(pipeline: BasePipeline,
         )
     return prediction
 
+def get_search_updates(categorical_indicator: List[bool]):
+    """
+    These updates mimic the autopytorch tabular paper.
+    Returns:
+    ________
+    search_space_updates - HyperparameterSearchSpaceUpdates
+        The search space updates like setting different hps to different values or ranges.
+    """
+
+    has_cat_features = any(categorical_indicator)
+    has_numerical_features = not all(categorical_indicator)
+
+    search_space_updates = HyperparameterSearchSpaceUpdates()
+
+    # architecture head
+    search_space_updates.append(
+        node_name='network_head',
+        hyperparameter='fully_connected:activation',
+        value_range=['relu'],
+        default_value='relu',
+    )
+    search_space_updates.append(
+        node_name='network_head',
+        hyperparameter='fully_connected:num_layers',
+        value_range=[1],
+        default_value=1,
+    )
+    search_space_updates.append(
+        node_name='network_head',
+        hyperparameter='fully_connected:units_layer',
+        value_range=[64, 1024],
+        default_value=64,
+        log=True
+    )
+
+    # weights initialisation
+    search_space_updates.append(
+        node_name='network_init',
+        hyperparameter='__choice__',
+        value_range=['NoInit'],
+        default_value='NoInit',
+    )
+    search_space_updates.append(
+        node_name='network_init',
+        hyperparameter='NoInit:bias_strategy',
+        value_range=['Zero'],
+        default_value='Zero',
+    )
+
+    # backbone architecture choices
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='__choice__',
+        value_range=['ShapedResNetBackbone', 'ShapedMLPBackbone'],
+        default_value='ShapedResNetBackbone',
+    )
+
+    # resnet backbone
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:resnet_shape',
+        value_range=['funnel'],
+        default_value='funnel',
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:max_dropout',
+        value_range=[0, 1],
+        default_value=0.5,
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:num_groups',
+        value_range=[1, 4],
+        default_value=2,
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:blocks_per_group',
+        value_range=[1, 3],
+        default_value=2,
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:output_dim',
+        value_range=[32, 512],
+        default_value=64,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:max_units',
+        value_range=[32, 512],
+        default_value=64,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedResNetBackbone:activation',
+        value_range=['relu'],
+        default_value='relu',
+    )
+
+    # mlp backbone
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedMLPBackbone:mlp_shape',
+        value_range=['funnel'],
+        default_value='funnel',
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedMLPBackbone:num_groups',
+        value_range=[1, 5],
+        default_value=2,
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedMLPBackbone:output_dim',
+        value_range=[64, 1024],
+        default_value=64,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedMLPBackbone:max_units',
+        value_range=[64, 1024],
+        default_value=64,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='network_backbone',
+        hyperparameter='ShapedMLPBackbone:activation',
+        value_range=['relu'],
+        default_value='relu',
+    )
+
+    # training updates
+    # lr scheduler
+    search_space_updates.append(
+        node_name='lr_scheduler',
+        hyperparameter='__choice__',
+        value_range=['CosineAnnealingLR'],
+        default_value='CosineAnnealingLR',
+    )
+    search_space_updates.append(
+        node_name='lr_scheduler',
+        hyperparameter='CosineAnnealingLR:T_max',
+        value_range=[50],
+        default_value=50,
+    )
+    # optimizer
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='__choice__',
+        value_range=['AdamOptimizer', 'SGDOptimizer'],
+        default_value='AdamOptimizer',
+    )
+    # adam
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='AdamOptimizer:lr',
+        value_range=[1e-4, 1e-1],
+        default_value=1e-3,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='AdamOptimizer:weight_decay',
+        value_range=[1e-5, 1e-1],
+        default_value=1e-3,
+    )
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='AdamOptimizer:beta1',
+        value_range=[0.9],
+        default_value=0.9,
+    )
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='AdamOptimizer:beta2',
+        value_range=[0.999],
+        default_value=0.999,
+    )
+    # sgd
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='SGDOptimizer:lr',
+        value_range=[1e-4, 1e-1],
+        default_value=1e-3,
+        log=True
+    )
+
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='SGDOptimizer:weight_decay',
+        value_range=[1e-5, 1e-1],
+        default_value=1e-3,
+    )
+    search_space_updates.append(
+        node_name='optimizer',
+        hyperparameter='SGDOptimizer:momentum',
+        value_range=[0.1, 0.999],
+        default_value=0.1,
+        log=True
+    )
+    search_space_updates.append(
+        node_name='data_loader',
+        hyperparameter='batch_size',
+        value_range=[16, 512],
+        default_value=128,
+        log=True
+    )
+
+    # preprocessing
+    if has_numerical_features:
+        search_space_updates.append(
+            node_name='feature_preprocessor',
+            hyperparameter='__choice__',
+            value_range=['NoFeaturePreprocessor', 'TruncatedSVD'],
+            default_value='NoFeaturePreprocessor',
+        )
+        search_space_updates.append(
+            node_name='feature_preprocessor',
+            hyperparameter='TruncatedSVD:target_dim',
+            value_range=[0.1, 0.9],
+            default_value=0.4,
+        )
+        search_space_updates.append(
+            node_name='imputer',
+            hyperparameter='numerical_strategy',
+            value_range=['mean'],
+            default_value='mean',
+        )
+        search_space_updates.append(
+            node_name='scaler',
+            hyperparameter='__choice__',
+            value_range=['StandardScaler'],
+            default_value='StandardScaler',
+        )
+    if has_cat_features:
+        search_space_updates.append(
+            node_name='encoder',
+            hyperparameter='__choice__',
+            value_range=['OneHotEncoder'],
+            default_value='OneHotEncoder',
+        )
+
+    return search_space_updates
+
 
 class BaseTask:
     """
@@ -141,7 +391,8 @@ class BaseTask:
         resampling_strategy: Union[CrossValTypes, HoldoutValTypes] = HoldoutValTypes.holdout_validation,
         resampling_strategy_args: Optional[Dict[str, Any]] = None,
         search_space_updates: Optional[HyperparameterSearchSpaceUpdates] = None,
-        task_type: Optional[str] = None
+        task_type: Optional[str] = None,
+        categorical_indicator: Optional[List[bool]] = None
     ) -> None:
         self.seed = seed
         self.n_jobs = n_jobs
@@ -188,7 +439,7 @@ class BaseTask:
 
         self._dask_client = None
 
-        self.search_space_updates = search_space_updates
+        self.search_space_updates = search_space_updates if search_space_updates is not None else get_search_updates(categorical_indicator)
         if search_space_updates is not None:
             if not isinstance(self.search_space_updates,
                               HyperparameterSearchSpaceUpdates):
