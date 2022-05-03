@@ -68,6 +68,8 @@ class NetworkBackboneComponent(autoPyTorchComponent):
         self.backbone = self.build_backbone(
             input_shape=input_shape,
         )
+        self.logger.debug(f"After building backbone Available virtual memory: {psutil.virtual_memory().available/1024/1024}, total virtual memroy: {psutil.virtual_memory().total/1024/1024}")
+
         return self
 
     def transform(self, X: Dict[str, Any]) -> Dict[str, Any]:
