@@ -26,7 +26,7 @@ class autoPyTorchTabularPreprocessingComponent(autoPyTorchPreprocessingComponent
         Returns:
             Dict[str, BaseEstimator]: early_preprocessor dictionary
         """
-        if (self.preprocessor['numerical'] and self.preprocessor['categorical']) is None:
+        if (self.preprocessor['numerical'] and self.preprocessor['categorical'] and self.preprocessor['encode']) is None:
             raise AttributeError("{} can't return early_preprocessor dict without fitting first"
                                  .format(self.__class__.__name__))
         return self.preprocessor
