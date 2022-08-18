@@ -15,6 +15,10 @@ class BaseEncoder(autoPyTorchTabularPreprocessingComponent):
         self.add_fit_requirements([
             FitRequirement('encode_columns', (List,), user_defined=True, dataset_property=False)])
 
+    @staticmethod
+    def _has_encode_columns(X: Dict[str, Any]):
+        return len(X.get('encode_columns', [])) > 0
+
     def transform(self, X: Dict[str, Any]) -> Dict[str, Any]:
         """
         Adds the self into the 'X' dictionary and returns it.
