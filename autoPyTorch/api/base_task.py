@@ -48,6 +48,7 @@ from autoPyTorch.datasets.resampling_strategy import (
     ResamplingStrategies,
 )
 from autoPyTorch.ensemble.ensemble_builder import EnsembleBuilderManager
+from autoPyTorch.utils.model_deletion import ModelDeletionManager
 from autoPyTorch.ensemble.singlebest_ensemble import SingleBest
 from autoPyTorch.evaluation.abstract_evaluator import fit_and_suppress_warnings
 from autoPyTorch.evaluation.tae import ExecuteTaFuncWithQueue, get_cost_of_crash
@@ -1231,7 +1232,10 @@ class BaseTask(ABC):
         self.opt_metric = optimize_metric
         elapsed_time = self._stopwatch.wall_elapsed(self.dataset_name)
         time_left_for_ensembles = max(0, total_walltime_limit - elapsed_time)
+
         proc_ensemble = None
+        proc_deletion = None
+
         if time_left_for_ensembles <= 0:
             # Fit only raises error when ensemble_size is not zero but
             # time_left_for_ensembles is zero.
@@ -1252,6 +1256,15 @@ class BaseTask(ABC):
                                                         optimize_metric=self.opt_metric
                                                         )
             self._stopwatch.stop_task(ensemble_task_name)
+
+        # hotfix for portfolio
+        if isinstance(self.resampling_strategy, NoResamplingStrategyTypes) and self.ensemble_size == 0:
+            proc_deletion = self._init_model_deletion(time_left_for_deletion=time_left_for_ensembles,
+                                                      precision=precision,
+                                                      optimize_metric=self.opt_metric
+                                                      )
+
+        callback = proc_deletion if proc_deletion is not None else proc_ensemble
 
         # ==> Run SMAC
         smac_task_name: str = 'runSMAC'
@@ -1285,7 +1298,7 @@ class BaseTask(ABC):
                 pipeline_config=self.pipeline_options,
                 min_budget=min_budget,
                 max_budget=max_budget,
-                ensemble_callback=proc_ensemble,
+                ensemble_callback=callback,
                 logger_port=self._logger_port,
                 # We do not increase the num_run here, this is something
                 # smac does internally
@@ -1896,6 +1909,62 @@ class BaseTask(ABC):
         self._stopwatch.stop_task(ensemble_task_name)
 
         return proc_ensemble
+
+    def _init_model_deletion(
+            self,
+            time_left_for_deletion: float,
+            optimize_metric: str,
+            precision: int = 32,
+    ) -> ModelDeletionManager:
+        """
+        Initializes an `EnsembleBuilderManager`.
+        Args:
+            time_left_for_ensembles (float):
+                Time (in seconds) allocated to building the ensemble
+            optimize_metric (str):
+                Name of the metric to optimize the ensemble.
+            precision (int), (default=32): Numeric precision used when loading
+                ensemble data. Can be either 16, 32 or 64.
+
+        Returns:
+            EnsembleBuilderManager
+        """
+        if self._logger is None:
+            raise ValueError("logger should be initialized to delete models")
+        if self.dataset is None:
+            raise ValueError("model deletion can only be initialised after or during `search()`. "
+                             "Please call the `search()` method of {}.".format(self.__class__.__name__))
+
+        self._logger.info("Deleting worse models")
+        task_name = 'deletion'
+        self._stopwatch.start_task(task_name)
+
+        # Use the current thread to start the ensemble builder process
+        # The function ensemble_builder_process will internally create a ensemble
+        # builder in the provide dask client
+        required_dataset_properties = {'task_type': self.task_type,
+                                       'output_type': self.dataset.output_type}
+        proc_deletion = ModelDeletionManager(
+            start_time=time.time(),
+            time_left_for_deletion=time_left_for_deletion,
+            backend=copy.deepcopy(self._backend),
+            dataset_name=str(self.dataset.dataset_name),
+            output_type=STRING_TO_OUTPUT_TYPES[self.dataset.output_type],
+            task_type=STRING_TO_TASK_TYPES[self.task_type],
+            metrics=[self._metric] if self._metric is not None else get_metrics(
+                dataset_properties=required_dataset_properties, names=[optimize_metric]),
+            opt_metric=optimize_metric,
+            max_models_on_disc=self.max_models_on_disc,
+            seed=self.seed,
+            max_iterations=None,
+            read_at_most=sys.maxsize,
+            random_state=self.seed,
+            precision=precision,
+            logger_port=self._logger_port,
+        )
+        self._stopwatch.stop_task(task_name)
+
+        return proc_deletion
 
     def _collect_results_ensemble(
         self,

@@ -25,6 +25,7 @@ from autoPyTorch.datasets.resampling_strategy import (
     NoResamplingStrategyTypes
 )
 from autoPyTorch.ensemble.ensemble_builder import EnsembleBuilderManager
+from autoPyTorch.utils.model_deletion import ModelDeletionManager
 from autoPyTorch.evaluation.tae import ExecuteTaFuncWithQueue, get_cost_of_crash
 from autoPyTorch.optimizer.utils import read_return_initial_configurations
 from autoPyTorch.pipeline.components.training.metrics.base import autoPyTorchMetric
@@ -108,7 +109,8 @@ class AutoMLSMBO(object):
                  smac_scenario_args: Optional[Dict[str, Any]] = None,
                  get_smac_object_callback: Optional[Callable] = None,
                  all_supported_metrics: bool = True,
-                 ensemble_callback: Optional[EnsembleBuilderManager] = None,
+                 ensemble_callback: Optional[Union[EnsembleBuilderManager,
+                                                   ModelDeletionManager]] = None,
                  logger_port: Optional[int] = None,
                  search_space_updates: Optional[HyperparameterSearchSpaceUpdates] = None,
                  portfolio_selection: Optional[str] = None,
